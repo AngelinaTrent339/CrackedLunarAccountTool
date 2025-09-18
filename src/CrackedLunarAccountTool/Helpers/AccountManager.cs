@@ -11,6 +11,19 @@ namespace CrackedLunarAccountTool.Helpers
         private static JObject json;
         public static void CreateAccount(string username, string uuid)
         {
+            // Check if json is null
+            if (json == null)
+            {
+                ConsoleHelpers.PrintLine("ERROR", "JSON data is not loaded. Cannot create account.", Color.FromArgb(224, 17, 95));
+                return;
+            }
+
+            // Ensure accounts object exists
+            if (json["accounts"] == null)
+            {
+                json["accounts"] = new JObject();
+            }
+
             // the account data to be added
             JObject newAccount = new JObject
             {
@@ -41,12 +54,24 @@ namespace CrackedLunarAccountTool.Helpers
 
         public static void RemoveAllAccounts()
         {
+            if (json == null)
+            {
+                ConsoleHelpers.PrintLine("ERROR", "JSON data is not loaded. Cannot remove accounts.", Color.FromArgb(224, 17, 95));
+                return;
+            }
+
             json["accounts"] = new JObject();
             ConsoleHelpers.PrintLine("SUCCESS", "All accounts have been successfully removed.", Color.FromArgb(135, 145, 216));
         }
 
         public static void RemoveCrackedAccounts()
         {
+            if (json == null || json["accounts"] == null)
+            {
+                ConsoleHelpers.PrintLine("ERROR", "JSON data is not loaded or accounts section is missing. Cannot remove accounts.", Color.FromArgb(224, 17, 95));
+                return;
+            }
+
             JArray accountsToRemove = new JArray();
             JObject accounts = (JObject)json["accounts"];
 
@@ -68,6 +93,12 @@ namespace CrackedLunarAccountTool.Helpers
 
         public static void RemovePremiumAccounts()
         {
+            if (json == null || json["accounts"] == null)
+            {
+                ConsoleHelpers.PrintLine("ERROR", "JSON data is not loaded or accounts section is missing. Cannot remove accounts.", Color.FromArgb(224, 17, 95));
+                return;
+            }
+
             JArray accountsToRemove = new JArray();
             JObject accounts = (JObject)json["accounts"];
 
@@ -89,8 +120,21 @@ namespace CrackedLunarAccountTool.Helpers
 
         public static void ViewInstalledAccounts()
         {
+            if (json == null || json["accounts"] == null)
+            {
+                ConsoleHelpers.PrintLine("ERROR", "JSON data is not loaded or accounts section is missing. Cannot view accounts.", Color.FromArgb(224, 17, 95));
+                return;
+            }
+
             ConsoleHelpers.PrintLine("INFO", "Installed Accounts:", Color.FromArgb(135, 145, 216));
             JObject accounts = (JObject)json["accounts"];
+            
+            if (accounts.Count == 0)
+            {
+                ConsoleHelpers.PrintLine("INFO", "No accounts found.", Color.FromArgb(135, 145, 216));
+                return;
+            }
+
             foreach (var account in accounts)
             {
                 ConsoleHelpers.PrintLine("ACCOUNT", account.Key + ": " + account.Value["username"], Color.FromArgb(135, 145, 216));
@@ -103,18 +147,42 @@ namespace CrackedLunarAccountTool.Helpers
             {
                 if (File.Exists(Program.lunarAcccountsPath))
                 {
-                    json = JObject.Parse(File.ReadAllText(Program.lunarAcccountsPath));
+                    string jsonContent = File.ReadAllText(Program.lunarAcccountsPath);
+                    if (string.IsNullOrWhiteSpace(jsonContent))
+                    {
+                        // If file is empty, create default structure
+                        json = new JObject { ["accounts"] = new JObject() };
+                    }
+                    else
+                    {
+                        json = JObject.Parse(jsonContent);
+                        // Ensure accounts object exists
+                        if (json["accounts"] == null)
+                        {
+                            json["accounts"] = new JObject();
+                        }
+                    }
                 }
                 else
                 {
+                    // Create directory if it doesn't exist
+                    string directory = Path.GetDirectoryName(Program.lunarAcccountsPath);
+                    if (!Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    
                     json = new JObject { ["accounts"] = new JObject() };
+                    
+                    // Save the default structure to file
+                    SaveJson();
                 }
             }
             catch (Exception e)
             {
                 ConsoleHelpers.PrintLine("ERROR", "Failed to load accounts file: " + e.Message, Color.FromArgb(224, 17, 95));
-                ConsoleHelpers.PrintLine("NOTICE", "Please check that you have Lunar Client installed." + e.Message, Color.FromArgb(224, 17, 95));
-                ConsoleHelpers.PrintLine("NOTICE", "Exiting in 3 seconds..." + e.Message, Color.FromArgb(242, 140, 40));
+                ConsoleHelpers.PrintLine("NOTICE", "Please check that you have write permissions to the Lunar Client directory.", Color.FromArgb(224, 17, 95));
+                ConsoleHelpers.PrintLine("NOTICE", "Exiting in 3 seconds...", Color.FromArgb(242, 140, 40));
                 Thread.Sleep(3000);
                 Environment.Exit(1);
             }
@@ -124,6 +192,19 @@ namespace CrackedLunarAccountTool.Helpers
         {
             try
             {
+                if (json == null)
+                {
+                    ConsoleHelpers.PrintLine("ERROR", "JSON data is null. Cannot save accounts file.", Color.FromArgb(224, 17, 95));
+                    return;
+                }
+
+                // Create directory if it doesn't exist
+                string directory = Path.GetDirectoryName(Program.lunarAcccountsPath);
+                if (!Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
                 File.WriteAllText(Program.lunarAcccountsPath, json.ToString());
             }
             catch (Exception e)

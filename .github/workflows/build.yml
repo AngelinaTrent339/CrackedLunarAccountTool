@@ -1,0 +1,55 @@
+name: Build Executable
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET Framework
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+      
+    - name: Restore NuGet packages
+      run: nuget restore src/CrackedLunarAccountTool.sln
+      
+    - name: Build solution
+      run: msbuild src/CrackedLunarAccountTool.sln /p:Configuration=Release /p:Platform="Any CPU"
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: CrackedLunarAccountTool-${{ github.sha }}
+        path: src/CrackedLunarAccountTool/bin/Release/
+        retention-days: 30
+        
+    - name: Create release package (on release)
+      if: github.event_name == 'release'
+      run: |
+        mkdir release-package
+        copy "src\CrackedLunarAccountTool\bin\Release\CrackedLunarAccountTool.exe" "release-package\"
+        copy "LICENSE.md" "release-package\" 2>nul || echo "No LICENSE.md found"
+        copy "README.md" "release-package\" 2>nul || echo "No README.md found"
+        
+    - name: Upload release assets (on release)
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: src/CrackedLunarAccountTool/bin/Release/CrackedLunarAccountTool.exe
+        asset_name: CrackedLunarAccountTool.exe
+        asset_content_type: application/octet-stream
